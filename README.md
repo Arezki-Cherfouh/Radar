@@ -106,7 +106,3 @@ Other side → GND
 ## License
 
 MIT - Free for learning and modification
-
-```
-
-```
