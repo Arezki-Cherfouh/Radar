@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arduino Radar System - Real Life Simulation</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #1a1a1a;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        font-family: "Courier New", monospace;
+        padding: 20px;
+      }
+
+      .container {
+        display: flex;
+        gap: 30px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .screen-container {
+        background: #2a2a2a;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 10px 50px rgba(0, 255, 0, 0.3);
+      }
+
+      .screen-label {
+        color: #0f0;
+        text-align: center;
+        margin-bottom: 10px;
+        font-size: 18px;
+        font-weight: bold;
+      }
+
+      canvas {
+        border: 3px solid #333;
+        border-radius: 5px;
+        background: #000;
+        display: block;
+      }
+
+      .controls {
+        background: #2a2a2a;
+        padding: 30px;
+        border-radius: 10px;
+        color: #0f0;
+        max-width: 400px;
+      }
+
+      .controls h2 {
+        margin-bottom: 20px;
+        text-align: center;
+        color: #0ff;
+      }
+
+      .control-group {
+        margin-bottom: 20px;
+      }
+
+      .control-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 14px;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        height: 6px;
+        background: #444;
+        outline: none;
+        border-radius: 3px;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        width: 20px;
+        height: 20px;
+        background: #0f0;
+        cursor: pointer;
+        border-radius: 50%;
+      }
+
+      input[type="range"]::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        background: #0f0;
+        cursor: pointer;
+        border-radius: 50%;
+      }
+
+      .value-display {
+        text-align: right;
+        font-size: 18px;
+        color: #0ff;
+        font-weight: bold;
+      }
+
+      .info-panel {
+        background: #1a1a1a;
+        padding: 15px;
+        border-radius: 5px;
+        margin-top: 20px;
+        border: 1px solid #444;
+      }
+
+      .info-panel p {
+        margin: 5px 0;
+        font-size: 13px;
+      }
+
+      .status {
+        color: #ff0;
+      }
+
+      .warning {
+        color: #f00;
+        font-weight: bold;
+        animation: blink 1s infinite;
+      }
+
+      @keyframes blink {
+        0%,
+        50% {
+          opacity: 1;
+        }
+        51%,
+        100% {
+          opacity: 0.3;
+        }
+      }
+
+      button {
+        width: 100%;
+        padding: 12px;
+        margin-top: 20px;
+        background: #0a0;
+        color: #000;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      button:hover {
+        background: #0f0;
+        box-shadow: 0 0 20px #0f0;
+      }
+
+      button:active {
+        transform: scale(0.95);
+      }
+
+      .realistic-note {
+        background: #2a2a2a;
+        padding: 20px;
+        border-radius: 10px;
+        color: #0f0;
+        max-width: 800px;
+        margin-top: 20px;
+      }
+
+      .realistic-note h3 {
+        color: #0ff;
+        margin-bottom: 10px;
+      }
+
+      .realistic-note ul {
+        margin-left: 20px;
+        line-height: 1.8;
+      }
+
+      .realistic-note li {
+        margin: 5px 0;
+      }
+
+      .check {
+        color: #0f0;
+      }
+
+      .caution {
+        color: #ff0;
+      }
+    </style>
+  </head>
+  <body>
+    <div style="width: 100%; max-width: 1400px">
+      <div class="container">
+        <div class="screen-container">
+          <div class="screen-label">ILI9341 LCD DISPLAY (240x320)</div>
+          <canvas id="radarCanvas" width="320" height="320"></canvas>
+        </div>
+
+        <div class="controls">
+          <h2>RADAR SIMULATOR</h2>
+
+          <div class="control-group">
+            <label
+              >Object Distance:
+              <span class="value-display" id="distanceValue">50 cm</span></label
+            >
+            <input
+              type="range"
+              id="distanceSlider"
+              min="5"
+              max="150"
+              value="50"
+            />
+          </div>
+
+          <div class="control-group">
+            <label
+              >Object Angle:
+              <span class="value-display" id="angleValue">90°</span></label
+            >
+            <input type="range" id="angleSlider" min="0" max="180" value="90" />
+          </div>
+
+          <div class="control-group">
+            <label
+              >Scan Speed:
+              <span class="value-display" id="speedValue">Medium</span></label
+            >
+            <input type="range" id="speedSlider" min="1" max="5" value="3" />
+          </div>
+
+          <button id="toggleBtn">⏸ PAUSE SCAN</button>
+
+          <div class="info-panel">
+            <p class="status">Status: <span id="statusText">SCANNING</span></p>
+            <p>Current Angle: <span id="currentAngle">0</span>°</p>
+            <p>Detected Distance: <span id="detectedDist">--</span> cm</p>
+            <p id="alarmText"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("radarCanvas");
+      const ctx = canvas.getContext("2d");
+
+      const centerX = 160;
+      const centerY = 200;
+      const maxRadius = 120;
+      const numCircles = 4;
+
+      let currentAngle = 0;
+      let angleStep = 1;
+      let objectDistance = 50;
+      let objectAngle = 90;
+      let isScanning = true;
+      let scanSpeed = 3;
+      let distanceHistory = new Array(181).fill(400);
+
+      // Sliders
+      const distanceSlider = document.getElementById("distanceSlider");
+      const angleSlider = document.getElementById("angleSlider");
+      const speedSlider = document.getElementById("speedSlider");
+      const toggleBtn = document.getElementById("toggleBtn");
+
+      distanceSlider.addEventListener("input", (e) => {
+        objectDistance = parseInt(e.target.value);
+        document.getElementById("distanceValue").textContent =
+          objectDistance + " cm";
+      });
+
+      angleSlider.addEventListener("input", (e) => {
+        objectAngle = parseInt(e.target.value);
+        document.getElementById("angleValue").textContent = objectAngle + "°";
+      });
+
+      speedSlider.addEventListener("input", (e) => {
+        scanSpeed = parseInt(e.target.value);
+        const speeds = ["Very Slow", "Slow", "Medium", "Fast", "Very Fast"];
+        document.getElementById("speedValue").textContent =
+          speeds[scanSpeed - 1];
+      });
+
+      toggleBtn.addEventListener("click", () => {
+        isScanning = !isScanning;
+        toggleBtn.textContent = isScanning ? "⏸ PAUSE SCAN" : "▶ RESUME SCAN";
+        document.getElementById("statusText").textContent = isScanning
+          ? "SCANNING"
+          : "PAUSED";
+      });
+
+      function drawRadarBase() {
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw concentric circles
+        ctx.strokeStyle = "rgba(0, 100, 0, 0.8)";
+        ctx.lineWidth = 1;
+        for (let i = 1; i <= numCircles; i++) {
+          const radius = (maxRadius * i) / numCircles;
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, radius, Math.PI, 0, false);
+          ctx.stroke();
+        }
+
+        // Draw angle lines (0° is left, 180° is right)
+        for (let angle = 0; angle <= 180; angle += 30) {
+          const rad = (angle * Math.PI) / 180;
+          const x = centerX - maxRadius * Math.cos(rad);
+          const y = centerY - maxRadius * Math.sin(rad);
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+        }
+
+        // Labels
+        ctx.fillStyle = "#0f0";
+        ctx.font = "12px Courier New";
+        ctx.fillText("RADAR SYSTEM", 10, 15);
+
+        // Distance markers
+        ctx.font = "10px Courier New";
+        for (let i = 1; i <= numCircles; i++) {
+          const dist = (100 * i) / numCircles;
+          const y = centerY - (maxRadius * i) / numCircles;
+          ctx.fillText(dist + "cm", centerX + 5, y);
+        }
+
+        // Angle markers (0° is LEFT, 180° is RIGHT)
+        ctx.fillText("90°", centerX - 12, centerY - maxRadius - 5);
+        ctx.fillText("0°", centerX - maxRadius - 15, centerY + 5);
+        ctx.fillText("180°", centerX + maxRadius + 5, centerY + 5);
+      }
+
+      function getDistance(angle) {
+        // Simulate object detection
+        const angleDiff = Math.abs(angle - objectAngle);
+        if (angleDiff < 5 && objectDistance < 100) {
+          return objectDistance + (Math.random() - 0.5) * 3; // Add some noise
+        }
+        return 400; // No object
+      }
+
+      function drawRadar() {
+        if (isScanning) {
+          currentAngle += angleStep * scanSpeed * 0.5;
+
+          if (currentAngle >= 180) {
+            currentAngle = 180;
+            angleStep = -1;
+          } else if (currentAngle <= 0) {
+            currentAngle = 0;
+            angleStep = 1;
+          }
+        }
+
+        const distance = getDistance(currentAngle);
+        distanceHistory[Math.round(currentAngle)] = distance;
+
+        drawRadarBase();
+
+        // Draw fade effect
+        for (let i = 1; i <= 40; i++) {
+          const fadeAngle = currentAngle - i * angleStep;
+          if (fadeAngle >= 0 && fadeAngle <= 180) {
+            const fadeRad = (fadeAngle * Math.PI) / 180;
+            const fadeX = centerX - maxRadius * Math.cos(fadeRad);
+            const fadeY = centerY - maxRadius * Math.sin(fadeRad);
+
+            const alpha = Math.max(0, 1 - i / 40);
+            ctx.strokeStyle = `rgba(0, 255, 0, ${alpha * 0.6})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(fadeX, fadeY);
+            ctx.stroke();
+
+            // Draw detected objects in fade trail
+            const histDist = distanceHistory[Math.round(fadeAngle)];
+            if (histDist < 100) {
+              const objRadius = (histDist / 100) * maxRadius;
+              const objX = centerX - objRadius * Math.cos(fadeRad);
+              const objY = centerY - objRadius * Math.sin(fadeRad);
+
+              ctx.fillStyle = `rgba(255, ${50 - i}, 0, ${alpha})`;
+              ctx.beginPath();
+              ctx.arc(objX, objY, 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+
+        // Draw current scan line (bright)
+        const rad = (currentAngle * Math.PI) / 180;
+        const x = centerX - maxRadius * Math.cos(rad);
+        const y = centerY - maxRadius * Math.sin(rad);
+
+        ctx.strokeStyle = "#0f0";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+
+        // Draw detected object
+        if (distance < 100) {
+          const objRadius = (distance / 100) * maxRadius;
+          const objX = centerX - objRadius * Math.cos(rad);
+          const objY = centerY - objRadius * Math.sin(rad);
+
+          ctx.fillStyle = "#f00";
+          ctx.beginPath();
+          ctx.arc(objX, objY, 4, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Glow effect
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = "#f00";
+          ctx.beginPath();
+          ctx.arc(objX, objY, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+
+        // Info display at bottom
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 300, canvas.width, 20);
+        ctx.fillStyle = "#0f0";
+        ctx.font = "11px Courier New";
+        ctx.fillText(
+          `Angle: ${Math.round(currentAngle)}°  Dist: ${distance < 100 ? Math.round(distance) : "--"} cm`,
+          10,
+          313,
+        );
+
+        // Update info panel
+        document.getElementById("currentAngle").textContent =
+          Math.round(currentAngle);
+        document.getElementById("detectedDist").textContent =
+          distance < 100 ? Math.round(distance) : "--";
+
+        const alarmText = document.getElementById("alarmText");
+        if (distance < 20) {
+          alarmText.innerHTML =
+            '<span class="warning">⚠ ALARM: OBJECT TOO CLOSE!</span>';
+        } else {
+          alarmText.textContent = "";
+        }
+      }
+
+      // Animation loop
+      function animate() {
+        drawRadar();
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+    </script>
+  </body>
+</html>
